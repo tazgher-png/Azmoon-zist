@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>پنل معلم - آزمون زیست‌شناسی</title>
+
+
+    <!-- فایل CSS -->
+    <link rel="stylesheet" href="style.css">
+
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    <!-- SheetJS برای Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+    <!-- ========================= -->
+    <!-- ورود معلم -->
+    <!-- ========================= -->
+
+    <div id="login-box">
+
+        <h1>👨‍🏫 ورود معلم</h1>
+
+        <p>
+            برای ورود به پنل مدیریت، رمز عبور را وارد کنید.
+        </p>
+
+          <input
+    type="email"
+    id="teacher-email"
+    placeholder="ایمیل معلم"
+>
+
+        <input
+            type="password"
+            id="teacher-password"
+            placeholder="رمز عبور">
+
+
+        <button onclick="teacherLogin()">
+            ورود
+        </button>
+          
+   <button onclick="forgotPassword()">
+    🔑 فراموشی رمز عبور
+</button>
+          
+          
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- پنل اصلی معلم -->
+    <!-- ========================= -->
+
+    <div id="teacher-panel"
+         style="display:none;">
+
+        <h1>
+            👨‍🏫 پنل مدیریت معلم
+        </h1>
+
+
+        <hr>
+
+
+        <!-- دکمه‌های اصلی -->
+
+        <button onclick="showAddQuestion()">
+            ➕ افزودن سؤال
+        </button>
+
+
+        <button onclick="showQuestions()">
+            📋 مشاهده سؤال‌ها
+        </button>
+
+
+        <button onclick="showResults()">
+            📊 مشاهده نتایج آزمون‌ها
+        </button>
+
+
+        <button onclick="showProgressPanel()">
+            📈 نمودار پیشرفت
+        </button>
+
+
+        <button onclick="exportResultsToExcel()">
+            📥 دریافت نتایج Excel
+        </button>
+
+
+        <button onclick="location.href='index.html'">
+            🏠 بازگشت به آزمون
+        </button>
+
+
+
+        <!-- ========================= -->
+        <!-- فرم افزودن سؤال -->
+        <!-- ========================= -->
+
+        <div id="add-question"
+             style="display:none;">
+
+            <h2>
+                ➕ افزودن سؤال جدید
+            </h2>
+
+
+            <!-- نوع سؤال -->
+
+            <label for="question-type">
+                نوع سؤال:
+            </label>
+
+
+            <select
+                id="question-type"
+                onchange="changeQuestionType()">
+
+                <option value="mcq">
+                    چهارگزینه‌ای
+                </option>
+
+                <option value="truefalse">
+                    صحیح / غلط
+                </option>
+
+                <option value="fillblank">
+                    جای خالی
+                </option>
+
+                <option value="shortanswer">
+                    کوتاه پاسخ
+                </option>
+
+                <option value="essay">
+                    پاسخ کامل / تشریحی
+                </option>
+
+            </select>
+
+
+
+            <!-- پایه -->
+
+            <label for="teacher-grade">
+                پایه:
+            </label>
+
+
+            <select id="teacher-grade">
+
+                <option value="دهم">
+                    دهم
+                </option>
+
+                <option value="یازدهم">
+                    یازدهم
+                </option>
+
+                <option value="دوازدهم">
+                    دوازدهم
+                </option>
+
+            </select>
+
+
+
+            <!-- فصل -->
+
+            <label for="teacher-chapter">
+                فصل:
+            </label>
+
+
+            <select id="teacher-chapter">
+
+                <option value="فصل 1">
+                    فصل 1
+                </option>
+
+                <option value="فصل 2">
+                    فصل 2
+                </option>
+
+                <option value="فصل 3">
+                    فصل 3
+                </option>
+
+            </select>
+
+
+
+            <!-- متن سؤال -->
+
+            <label for="teacher-question">
+                متن سؤال:
+            </label>
+
+
+            <textarea
+                id="teacher-question"
+                placeholder="متن سؤال را وارد کنید">
+            </textarea>
+
+
+
+            <!-- ========================= -->
+            <!-- گزینه‌های چهارگزینه‌ای -->
+            <!-- ========================= -->
+
+            <div id="options-box">
+
+                <label>
+                    گزینه ۱:
+                </label>
+
+
+                <input
+                    type="text"
+                    id="option-0"
+                    placeholder="گزینه ۱">
+
+
+                <label>
+                    گزینه ۲:
+                </label>
+
+
+                <input
+                    type="text"
+                    id="option-1"
+                    placeholder="گزینه ۲">
+
+
+                <label>
+                    گزینه ۳:
+                </label>
+
+
+                <input
+                    type="text"
+                    id="option-2"
+                    placeholder="گزینه ۳">
+
+
+                <label>
+                    گزینه ۴:
+                </label>
+
+
+                <input
+                    type="text"
+                    id="option-3"
+                    placeholder="گزینه ۴">
+
+            </div>
+
+
+
+            <!-- ========================= -->
+            <!-- پاسخ -->
+            <!-- ========================= -->
+
+            <div id="answer-box">
+
+                <label for="correct-answer">
+                    پاسخ صحیح:
+                </label>
+
+
+                <select id="correct-answer">
+
+                    <option value="0">
+                        گزینه ۱
+                    </option>
+
+                    <option value="1">
+                        گزینه ۲
+                    </option>
+
+                    <option value="2">
+                        گزینه ۳
+                    </option>
+
+                    <option value="3">
+                        گزینه ۴
+                    </option>
+
+                </select>
+
+            </div>
+
+
+
+            <!-- ========================= -->
+            <!-- نمره سؤال تشریحی -->
+            <!-- ========================= -->
+
+            <div id="score-box"
+                 style="display:none;">
+
+                <label for="question-score">
+                    نمره سؤال:
+                </label>
+
+
+                <input
+                    type="number"
+                    id="question-score"
+                    min="0"
+                    step="0.25"
+                    value="1"
+                    placeholder="مثلاً 2">
+
+            </div>
+
+
+
+            <!-- ذخیره -->
+
+            <button onclick="addQuestion()">
+                💾 ذخیره سؤال
+            </button>
+
+
+            <!-- پاک کردن فرم -->
+
+            <button onclick="clearQuestionForm()">
+                🧹 پاک کردن فرم
+            </button>
+
+        </div>
+
+
+
+        <!-- ========================= -->
+        <!-- بانک سؤال -->
+        <!-- ========================= -->
+
+        <div id="question-list"
+             style="display:none;">
+
+            <h2>
+                📋 بانک سؤال
+            </h2>
+
+
+            <div id="questions-container"></div>
+
+        </div>
+
+
+
+        <!-- ========================= -->
+        <!-- نتایج آزمون -->
+        <!-- ========================= -->
+
+        <div id="results-panel"
+             style="display:none;">
+
+            <h2>
+                📊 نتایج آزمون‌ها
+            </h2>
+
+
+            <div id="results-container"></div>
+
+        </div>
+
+
+
+        <!-- ========================= -->
+        <!-- نمودار پیشرفت -->
+        <!-- ========================= -->
+
+        <div id="progress-panel"
+             style="display:none;">
+
+            <h2>
+                📈 نمودار پیشرفت دانش‌آموز
+            </h2>
+
+
+            <label for="student-select">
+                انتخاب دانش‌آموز:
+            </label>
+
+
+            <select
+                id="student-select"
+                onchange="showStudentChart()">
+
+                <option value="">
+                    -- یک دانش‌آموز انتخاب کنید --
+                </option>
+
+            </select>
+
+
+            <div style="margin-top:30px;">
+
+                <canvas id="progress-chart"></canvas>
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+
+<!-- ========================= -->
+<!-- JavaScript اصلی -->
+<!-- ========================= -->
+
+<script src="script.js"></script>
+
+
+<script>
+
+/*
+    در شروع پنل افزودن سؤال،
+    فرم را برای سؤال چهارگزینه‌ای آماده می‌کنیم.
+*/
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    if (typeof changeQuestionType === "function") {
+
+        changeQuestionType();
+
+    }
+
+});
+
+</script>
+
+
+</body>
+
+</html>

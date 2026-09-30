@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>آزمون آنلاین زیست‌شناسی</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🧬 آزمون آنلاین زیست‌شناسی</h1>
+
+    <!-- صفحه شروع -->
+   <div id="start-screen">
+
+    <h2>🌱 تنظیم آزمون</h2>
+
+    <input
+1        type="text"
+        id="student-name"
+        placeholder="نام و نام خانوادگی">
+
+
+    <label for="grade">پایه:</label>
+
+    <select id="grade">9
+
+        <option class="paye" value="همه">همه پایه‌ها</option>
+        <option value="دهم">دهم</option>
+        <option value="یازدهم">یازدهم</option>
+        <option value="دوازدهم">دوازدهم</option>
+
+    </select>
+
+
+    <label for="chapter">فصل:</label>
+
+    <select id="chapter">
+
+        <option class="paye" value="همه">همه فصل‌ها</option>
+        <option value="فصل 1">فصل 1</option>
+        <option value="فصل 2">فصل 2</option>
+        <option value="فصل 3">فصل 3</option>
+
+    </select>
+
+
+    <label for="question-count">
+        تعداد سؤال:
+    </label>
+
+    <select id="question-count">
+
+        <option value="5">5 سؤال</option>
+        <option value="10">10 سؤال</option>
+
+    </select>
+
+
+    <label for="exam-time">
+        زمان آزمون:
+    </label>
+
+    <select id="exam-time">
+
+        <option value="120">
+            2 دقیقه
+        </option>
+
+        <option value="300">
+            5 دقیقه
+        </option>
+
+        <option value="600">
+            10 دقیقه
+        </option>
+
+        <option value="1200">
+            20 دقیقه
+        </option>
+
+    </select>
+
+
+    <button class="start" onclick="startExam()">
+        شروع آزمون 🚀
+    </button>
+
+</div>
+
+
+    <!-- صفحه آزمون -->
+    <div id="quiz-screen">
+
+        <div class="top">
+
+            <span id="question-number">
+                سؤال 1 از 3
+            </span>
+
+            <span id="timer">
+                ⏱️ 2:00
+            </span>
+
+        </div>
+
+
+        <div class="progress-container">
+
+            <div id="progress-bar"></div>
+
+        </div>
+
+
+        <h2 id="question">
+            متن سؤال
+        </h2>
+
+
+        <div id="options"></div>
+
+
+        <button
+            id="next-button"
+            onclick="nextQuestion()">
+
+            سؤال بعدی
+
+        </button>
+
+    </div>
+
+
+    <!-- صفحه نتیجه -->
+    <div id="result-screen">
+          
+
+        <h2>🎉 آزمون تمام شد</h2>
+
+        <p id="result-name"></p>
+
+        <p id="result-score"></p>
+
+        <button onclick="restartExam()">
+            آزمون مجدد
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>      
+
+</body>
+
+</html>
+
