@@ -454,22 +454,7 @@ function nextQuestion() {
 
     const question =
         examQuestions[currentQuestion];
-alert(
-    "نوع سؤال: " +
-    question.type +
-    "\n\n" +
-    "پاسخ دانش‌آموز: " +
-    selectedAnswer +
-    "\n\n" +
-    "نوع پاسخ دانش‌آموز: " +
-    typeof selectedAnswer +
-    "\n\n" +
-    "پاسخ صحیح دیتابیس: " +
-    question.answer +
-    "\n\n" +
-    "نوع پاسخ صحیح: " +
-    typeof question.answer
-);
+
 
     // بررسی وجود سؤال
     if (!question) {
@@ -1125,7 +1110,6 @@ function showResult() {
     date: new Date().toLocaleString("fa-IR"),
 
     // پاسخ‌های دانش‌آموز
-    
     answers:
     examQuestions.map(
         function(question) {
@@ -1141,13 +1125,20 @@ function showResult() {
                 type:
                     question.type,
 
+                options:
+                    question.options ?? [],
+
                 userAnswer:
-                    question.userAnswer ?? null
+                    question.userAnswer ?? null,
+
+                correctAnswer:
+                    question.answer ?? null
 
             };
-
         }
-    )};
+        )
+    };
+    
            
         
         
@@ -1791,6 +1782,9 @@ async function displayResults() {
 }
 
 
+
+
+
 function showExamDetails(index, button) {
 
     const results = window.examResults;
@@ -2029,6 +2023,9 @@ function showExamDetails(index, button) {
 
     details.style.display = "block";
 }
+
+
+
 
 
 
