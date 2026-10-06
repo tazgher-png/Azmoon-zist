@@ -41,14 +41,12 @@ async function loadQuestionsFromSupabase() {
     try {
 
         const { data, error } =
-            await supabaseClient
-                .from("questions")
-                .select(
-                    "id, type, grade, chapter, question, options, answer"
-                )
-                .order("id", { ascending: true });
-
-
+    await supabaseClient
+        .from("student_questions")
+        .select(
+            "id, type, grade, chapter, question, options"
+        )
+        .order("id", { ascending: true });
         console.log(
             "نتایج دریافتی از Supabase:",
             data
@@ -104,9 +102,8 @@ async function loadQuestionsFromSupabase() {
                     options:
                         q.options || [],
 
-                    answer:
-                        q.answer ?? null,
-
+                    answer: null,
+                    
                     userAnswer:
                         null
 
@@ -1031,148 +1028,265 @@ function updateTimer() {
    نمایش نتیجه
 ========================= */
 
+
 async function saveExamResult(result) {
 
     const { data, error } =
         await supabaseClient
-        .from("exam_results")
-        .insert([{
-
-            student_name:
-                result.studentName,
-
-            score:
-                result.score,
-
-            total_questions:
-                result.totalQuestions,
-
-            correct_answers:
-                result.correctAnswers,
-
-            wrong_answers:
-                result.wrongAnswers,
-
-            date:
-                result.date,
-
-            answers:
-                result.answers
-
-        }]);
-
+            .from("exam_results")
+            .insert([{
+                student_name: result.studentName,
+                score: result.score,
+                total_questions: result.totalQuestions,
+                correct_answers: result.correctAnswers,
+                wrong_answers: result.wrongAnswers,
+                date: result.date,
+                answers: result.answers
+            }])
+            .select();
 
     if (error) {
 
         console.error(
-            "خطا در ذخیره نتیجه:",
+            "❌ خطا در ذخیره نتیجه:",
             error
         );
 
         alert(
-            "❌ خطا در ذخیره نتیجه:\n" +
+            "❌ نتیجه آزمون ذخیره نشد:\n\n" +
             error.message
         );
 
-        return;
-
+        return false;
     }
 
-
     console.log(
-        "✅ نتیجه و پاسخ‌های دانش‌آموز در Supabase ذخیره شد:",
+        "✅ نتیجه با موفقیت در Supabase ذخیره شد:",
         data
     );
 
+    return true;
 }
 
-function showResult() {
-    clearInterval(timerInterval);
 
-    const totalQuestions = examQuestions.length;
-    const wrongAnswers = totalQuestions - score;
 
-    // اطلاعات نتیجه
-    
-    const result = {
-    id: Date.now(),
 
-    studentName: studentName,
+async function gradeExamOnSupabase() {
 
-    score: score,
-
-    totalQuestions: totalQuestions,
-
-    correctAnswers: score,
-
-    wrongAnswers: wrongAnswers,
-
-    date: new Date().toLocaleString("fa-IR"),
-
-    // پاسخ‌های دانش‌آموز
-    answers:
-    examQuestions.map(
-        function(question) {
+    const submittedAnswers =
+        examQuestions.map(function(question) {
 
             return {
-
-                questionId:
-                    question.id,
-
-                question:
-                    question.question,
-
-                type:
-                    question.type,
-
-                options:
-                    question.options ?? [],
-
-                userAnswer:
-                    question.userAnswer ?? null,
-
-                correctAnswer:
-                    question.answer ?? null
-
+                questionId: question.id,
+                userAnswer: question.userAnswer
             };
-        }
-        )
-    };
-    
-           
-        
-        
-saveExamResult(result);
-    // دریافت نتایج قبلی
-    
 
-    // نمایش نتیجه
-    const quizScreen = document.getElementById("quiz-screen");
-    const resultScreen = document.getElementById("result-screen");
+        });
+
+    console.log(
+        "📤 پاسخ‌های ارسالی برای تصحیح:",
+        submittedAnswers
+    );
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "grade_exam",
+            {
+                submitted_answers:
+                    submittedAnswers
+            }
+        );
+
+    if (error) {
+
+        console.error(
+            "❌ خطا در تصحیح آزمون:",
+            error
+        );
+
+        alert(
+            "❌ خطا در تصحیح آزمون:\n\n" +
+            error.message
+        );
+
+        return null;
+    }
+
+    console.log(
+        "✅ نتیجه تصحیح از Supabase:",
+        data
+    );
+
+    return data;
+}
+
+
+
+async function showResult() {
+
+    clearInterval(timerInterval);
+
+    console.log(
+        "📝 آزمون به پایان رسید."
+    );
+
+    /* =========================
+       ارسال پاسخ‌ها برای تصحیح
+    ========================= */
+
+    const gradedResult =
+        await gradeExamOnSupabase();
+
+    if (!gradedResult) {
+
+        alert(
+            "❌ تصحیح آزمون انجام نشد."
+        );
+
+        return;
+    }
+
+    console.log(
+        "✅ نتیجه نهایی:",
+        gradedResult
+    );
+
+    /* =========================
+       اطلاعات نتیجه
+    ========================= */
+
+    const totalQuestions =
+        Number(
+            gradedResult.totalQuestions
+        ) || examQuestions.length;
+
+    const correctAnswers =
+        Number(
+            gradedResult.correctAnswers
+        ) || 0;
+
+    const wrongAnswers =
+        Number(
+            gradedResult.wrongAnswers
+        ) || 0;
+
+    const finalScore =
+        Number(
+            gradedResult.score
+        ) || 0;
+
+    /* =========================
+       ساخت نتیجه
+    ========================= */
+
+    const result = {
+
+        id: Date.now(),
+
+        studentName:
+            studentName,
+
+        score:
+            finalScore,
+
+        totalQuestions:
+            totalQuestions,
+
+        correctAnswers:
+            correctAnswers,
+
+        wrongAnswers:
+            wrongAnswers,
+
+        date:
+            new Date().toLocaleString(
+                "fa-IR"
+            ),
+
+        answers:
+            gradedResult.answers || []
+
+    };
+
+    console.log(
+        "📊 نتیجه آماده ذخیره:",
+        result
+    );
+
+    /* =========================
+       ذخیره نتیجه در Supabase
+    ========================= */
+
+    await saveExamResult(result);
+
+    /* =========================
+       نمایش صفحه نتیجه
+    ========================= */
+
+    const quizScreen =
+        document.getElementById(
+            "quiz-screen"
+        );
+
+    const resultScreen =
+        document.getElementById(
+            "result-screen"
+        );
 
     if (quizScreen) {
-        quizScreen.style.display = "none";
+        quizScreen.style.display =
+            "none";
     }
 
     if (resultScreen) {
-        resultScreen.style.display = "block";
+        resultScreen.style.display =
+            "block";
     }
 
-    const resultName = document.getElementById("result-name");
-    const resultScore = document.getElementById("result-score");
+    /* =========================
+       نمایش نام دانش‌آموز
+    ========================= */
+
+    const resultName =
+        document.getElementById(
+            "result-name"
+        );
 
     if (resultName) {
+
         resultName.textContent =
-            `دانش‌آموز: ${studentName}`;
+            "دانش‌آموز: " +
+            studentName;
     }
+
+    /* =========================
+       نمایش نمره
+    ========================= */
+
+    const resultScore =
+        document.getElementById(
+            "result-score"
+        );
 
     if (resultScore) {
+
         resultScore.textContent =
-            `نمره شما: ${score} از ${totalQuestions}`;
+            "نمره شما: " +
+            finalScore +
+            " از " +
+            totalQuestions;
     }
 
-    console.log("نتیجه ذخیره شد:", result);
+    console.log(
+        "✅ آزمون با موفقیت تصحیح و ذخیره شد."
+    );
 }
+
+
+
+
+
+
 /* =========================
    شروع دوباره
 ========================= */
@@ -1213,6 +1327,8 @@ function restartExam() {
 const teacherPassword =
     "1234";
 
+
+let editingQuestionId = null;
 /* ورود معلم */
 
 
@@ -1284,18 +1400,16 @@ async function teacherLogin() {
 }
 
 
-
-
 function showAddQuestion() {
 
-    document.getElementById("add-question").style.display =
-        "block";
+    editingQuestionId = null;
 
+    document.getElementById("add-question").style.display = "block";
+    document.getElementById("question-list").style.display = "none";
 
-    document.getElementById("question-list").style.display =
-        "none";
-
+    clearQuestionForm();
 }
+
 
 
 /* نمایش سؤال‌ها */
@@ -1315,131 +1429,110 @@ function showQuestions() {
 }
 
 
+
 async function addQuestion() {
 
-    // نوع سؤال
     const type =
         document.getElementById("question-type").value;
 
-
-    // متن سؤال
     const questionText =
-        document.getElementById("teacher-question")
-        .value
-        .trim();
+        document
+            .getElementById("teacher-question")
+            .value
+            .trim();
 
-
-    // پایه
     const grade =
         document.getElementById("teacher-grade").value;
 
-
-    // فصل
     const chapter =
         document.getElementById("teacher-chapter").value;
 
-
-    // بررسی متن سؤال
     if (questionText === "") {
-
         alert("متن سؤال را وارد کنید.");
-
         return;
     }
 
-
-    // ساخت سؤال
-    let newQuestion = {
-
+    let updatedQuestion = {
         grade: grade,
-
         chapter: chapter,
-
         question: questionText,
-
         type: type,
-
         options: null,
-
         answer: null
-
     };
 
-    
-    
-
-    // =========================
-    // چهارگزینه‌ای
-    // =========================
+    /* =========================
+       چهارگزینه‌ای
+    ========================= */
 
     if (type === "mcq") {
 
         const options = [
+            document
+                .getElementById("option-0")
+                .value
+                .trim(),
 
-            document.getElementById("option-0").value.trim(),
+            document
+                .getElementById("option-1")
+                .value
+                .trim(),
 
-            document.getElementById("option-1").value.trim(),
+            document
+                .getElementById("option-2")
+                .value
+                .trim(),
 
-            document.getElementById("option-2").value.trim(),
-
-            document.getElementById("option-3").value.trim()
-
+            document
+                .getElementById("option-3")
+                .value
+                .trim()
         ];
 
+        if (
+            options.some(
+                function(option) {
+                    return option === "";
+                }
+            )
+        ) {
 
-        // بررسی گزینه‌ها
-        if (options.some(option => option === "")) {
-
-            alert("لطفاً هر چهار گزینه را وارد کنید.");
+            alert(
+                "لطفاً هر چهار گزینه را وارد کنید."
+            );
 
             return;
         }
 
+        updatedQuestion.options =
+            options;
 
-        newQuestion.options = options;
-
-
-        newQuestion.answer =
+        updatedQuestion.answer =
             Number(
-                document.getElementById("correct-answer").value
+                document
+                    .getElementById("correct-answer")
+                    .value
             );
-
     }
 
-
-    // =========================
-    // صحیح / غلط
-    // =========================
+    /* =========================
+       صحیح / غلط
+    ========================= */
 
     else if (type === "truefalse") {
 
         const answerText =
-            document.getElementById("correct-answer").value;
+            document
+                .getElementById("correct-answer")
+                .value;
 
-
-        if (
-            answerText !== "true" &&
-            answerText !== "false"
-        ) {
-
-            alert(
-                "برای سؤال صحیح/غلط باید پاسخ true یا false باشد."
-            );
-
-            return;
-        }
-
-
-        newQuestion.answer =
+        updatedQuestion.answer =
             answerText === "true";
-
     }
 
-
-    // =========================
-    // جای خالی
-    // کوتاه پاسخ
-    // =========================
+    /* =========================
+       جای خالی / پاسخ کوتاه
+    ========================= */
 
     else if (
         type === "fillblank" ||
@@ -1447,91 +1540,131 @@ async function addQuestion() {
     ) {
 
         const answer =
-            document.getElementById("correct-answer").value.trim();
-
+            document
+                .getElementById("correct-answer")
+                .value
+                .trim();
 
         if (answer === "") {
 
-            alert("پاسخ صحیح را وارد کنید.");
+            alert(
+                "پاسخ صحیح را وارد کنید."
+            );
 
             return;
         }
 
-
-        newQuestion.answer = answer;
-
+        updatedQuestion.answer =
+            answer;
     }
 
-
-    // =========================
-    // تشریحی
-    // =========================
+    /* =========================
+       تشریحی
+    ========================= */
 
     else if (type === "essay") {
 
-        newQuestion.answer = null;
-
+        updatedQuestion.answer =
+            null;
     }
 
 
-    // =========================
-    // ذخیره در Supabase
-    // =========================
+    /* ==================================================
+       حالت ویرایش
+    ================================================== */
+
+    if (editingQuestionId !== null) {
+
+        console.log(
+            "✏️ در حال ویرایش سؤال:",
+            editingQuestionId
+        );
+
+        const { error } =
+            await supabaseClient
+                .from("questions")
+                .update(updatedQuestion)
+                .eq(
+                    "id",
+                    editingQuestionId
+                );
+
+        if (error) {
+
+            console.error(
+                "❌ خطا در ویرایش سؤال:",
+                error
+            );
+
+            alert(
+                "❌ ویرایش سؤال انجام نشد:\n\n" +
+                error.message
+            );
+
+            return;
+        }
+
+        alert(
+            "✅ سؤال با موفقیت ویرایش شد."
+        );
+
+        editingQuestionId = null;
+
+        clearQuestionForm();
+
+        document
+            .getElementById("add-question")
+            .style.display = "none";
+
+        document
+            .getElementById("question-list")
+            .style.display = "block";
+
+        displayQuestions();
+
+        return;
+    }
+
+
+    /* ==================================================
+       حالت افزودن سؤال جدید
+    ================================================== */
 
     const { data, error } =
         await supabaseClient
-        .from("questions")
-        .insert([newQuestion])
-        .select()
-        .single();
+            .from("questions")
+            .insert([updatedQuestion])
+            .select()
+            .single();
 
-
-    // اگر خطا وجود داشت
     if (error) {
 
-        console.error(error);
+        console.error(
+            "❌ خطا در ذخیره سؤال:",
+            error
+        );
 
         alert(
-            "❌ خطا در ذخیره سؤال:\n" +
+            "❌ خطا در ذخیره سؤال:\n\n" +
             error.message
         );
 
         return;
     }
 
-
-    // =========================
-    // ذخیره موفق
-    // =========================
-
-    // اضافه کردن ID دیتابیس
-    newQuestion.id = data.id;
-
-
-    // اضافه کردن به آرایه محلی
-    questions.push(newQuestion);
-
-
-    // ذخیره نسخه محلی
-    localStorage.setItem(
-        "biologyQuestions",
-        JSON.stringify(questions)
+    console.log(
+        "✅ سؤال جدید:",
+        data
     );
-
 
     alert(
         "✅ سؤال با موفقیت در دیتابیس آنلاین ذخیره شد."
     );
 
-
-    // پاک کردن فرم
     clearQuestionForm();
 
+    displayQuestions();
 }
-
-/* افزودن سؤال */
-
-
 /* پاک کردن فرم */
 
 function clearQuestionForm() {
@@ -1554,75 +1687,424 @@ function clearQuestionForm() {
 }
 
 
-/* نمایش بانک سؤال */
-
-function displayQuestions() {
+async function displayQuestions() {
 
     const container =
         document.getElementById("questions-container");
 
-
     if (!container) {
-
+        alert("❌ questions-container پیدا نشد.");
         return;
-
     }
 
+    container.innerHTML =
+        "⏳ در حال دریافت سؤال‌ها...";
+
+    const { data, error } =
+        await supabaseClient
+            .from("questions")
+            .select(
+                "id, type, grade, chapter, question, options, answer"
+            )
+            .order("id", {
+                ascending: true
+            });
+
+    console.log(
+        "📚 سؤال‌های دریافت‌شده:",
+        data
+    );
+
+    if (error) {
+
+        console.error(
+            "❌ خطا در دریافت سؤال‌ها:",
+            error
+        );
+
+        container.innerHTML =
+            "❌ خطا در دریافت سؤال‌ها:<br>" +
+            error.message;
+
+        return;
+    }
+
+    if (!data || data.length === 0) {
+
+        container.innerHTML =
+            "📭 هنوز هیچ سؤالی در بانک سؤال وجود ندارد.";
+
+        return;
+    }
 
     container.innerHTML = "";
 
-
-    questions.forEach(function(question, index) {
+    data.forEach(function(question, index) {
 
         const card =
             document.createElement("div");
 
-
         card.className =
             "question-card";
 
+        let optionsHTML = "";
+
+        if (
+            question.type === "mcq" &&
+            Array.isArray(question.options)
+        ) {
+
+            question.options.forEach(
+                function(option, optionIndex) {
+
+                    optionsHTML += `
+                        <p>
+                            گزینه ${optionIndex + 1}:
+                            ${option}
+                        </p>
+                    `;
+                }
+            );
+
+        }
+
+        else if (question.type === "truefalse") {
+
+            optionsHTML = `
+                <p>نوع سؤال: صحیح / غلط</p>
+            `;
+
+        }
+
+        else if (question.type === "fillblank") {
+
+            optionsHTML = `
+                <p>نوع سؤال: جای خالی</p>
+            `;
+
+        }
+
+        else if (question.type === "shortanswer") {
+
+            optionsHTML = `
+                <p>نوع سؤال: پاسخ کوتاه</p>
+            `;
+
+        }
+
+        else if (question.type === "essay") {
+
+            optionsHTML = `
+                <p>نوع سؤال: تشریحی</p>
+            `;
+        }
 
         card.innerHTML = `
 
-            <strong>
-                ${index + 1}.
-                ${question.question}
-            </strong>
+            <h3>
+                📝 سؤال ${index + 1}
+            </h3>
 
             <p>
-                پایه: ${question.grade}
+                <strong>
+                    ${question.question}
+                </strong>
             </p>
 
             <p>
-                فصل: ${question.chapter}
+                🎓 پایه:
+                ${question.grade || "-"}
             </p>
 
             <p>
-                گزینه ۱: ${question.options[0]}
+                📚 فصل:
+                ${question.chapter || "-"}
             </p>
 
             <p>
-                گزینه ۲: ${question.options[1]}
+                🔹 نوع:
+                ${question.type || "-"}
             </p>
 
-            <p>
-                گزینه ۳: ${question.options[2]}
-            </p>
+            ${optionsHTML}
 
-            <p>
-                گزینه ۴: ${question.options[3]}
-            </p>
+            <div style="
+                margin-top:15px;
+                display:flex;
+                gap:10px;
+                flex-wrap:wrap;
+            ">
+
+                <button
+                    onclick="editQuestion(${question.id})"
+                    style="
+                        background:#1976d2;
+                        color:white;
+                        border:none;
+                        padding:10px 15px;
+                        border-radius:8px;
+                        cursor:pointer;
+                    "
+                >
+                    ✏️ ویرایش
+                </button>
+
+                <button
+                    onclick="deleteQuestion(${question.id})"
+                    style="
+                        background:#d32f2f;
+                        color:white;
+                        border:none;
+                        padding:10px 15px;
+                        border-radius:8px;
+                        cursor:pointer;
+                    "
+                >
+                    🗑️ حذف
+                </button>
+
+            </div>
 
         `;
-
 
         container.appendChild(card);
 
     });
 
+    console.log(
+        "✅ تعداد سؤال‌های نمایش داده‌شده:",
+        data.length
+    );
 }
 
+/* نمایش بانک سؤال */
 
+async function deleteQuestion(questionId) {
+
+    const confirmed =
+        confirm(
+            "⚠️ آیا مطمئن هستید که می‌خواهید این سؤال را حذف کنید؟"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    console.log(
+        "🗑️ تلاش برای حذف سؤال با ID:",
+        questionId
+    );
+
+    const { data, error } =
+        await supabaseClient
+            .from("questions")
+            .delete()
+            .eq("id", questionId)
+            .select();
+
+    console.log("نتیجه حذف:", data);
+    console.log("خطای حذف:", error);
+
+    if (error) {
+
+        alert(
+            "❌ حذف سؤال انجام نشد.\n\n" +
+            "پیام خطا:\n" +
+            error.message +
+            "\n\nکد خطا:\n" +
+            (error.code || "-")
+        );
+
+        return;
+    }
+
+    if (!data || data.length === 0) {
+
+        alert(
+            "⚠️ هیچ سؤالی حذف نشد.\n\n" +
+            "احتمالاً مجوز حذف در Supabase تنظیم نشده است."
+        );
+
+        return;
+    }
+
+    alert(
+        "✅ سؤال با موفقیت حذف شد."
+    );
+
+    displayQuestions();
+}
+
+async function editQuestion(questionId) {
+
+    console.log(
+        "✏️ ویرایش سؤال با ID:",
+        questionId
+    );
+
+    const { data: question, error } =
+        await supabaseClient
+            .from("questions")
+            .select(
+                "id, type, grade, chapter, question, options, answer"
+            )
+            .eq("id", questionId)
+            .single();
+
+    if (error) {
+
+        console.error(
+            "❌ خطا در دریافت سؤال:",
+            error
+        );
+
+        alert(
+            "❌ اطلاعات سؤال دریافت نشد:\n\n" +
+            error.message
+        );
+
+        return;
+    }
+
+    if (!question) {
+
+        alert(
+            "❌ سؤال پیدا نشد."
+        );
+
+        return;
+    }
+
+    console.log(
+        "📚 سؤال برای ویرایش:",
+        question
+    );
+
+    editingQuestionId = question.id;
+
+    /* =========================
+       نمایش فرم سؤال
+    ========================= */
+
+    const addQuestion =
+        document.getElementById("add-question");
+
+    const questionList =
+        document.getElementById("question-list");
+
+    if (addQuestion) {
+        addQuestion.style.display = "block";
+    }
+
+    if (questionList) {
+        questionList.style.display = "none";
+    }
+
+    /* =========================
+       پر کردن اطلاعات سؤال
+    ========================= */
+
+    const typeInput =
+        document.getElementById("question-type");
+
+    const questionInput =
+        document.getElementById("teacher-question");
+
+    const gradeInput =
+        document.getElementById("teacher-grade");
+
+    const chapterInput =
+        document.getElementById("teacher-chapter");
+
+    if (typeInput) {
+        typeInput.value = question.type;
+    }
+
+    if (questionInput) {
+        questionInput.value = question.question || "";
+    }
+
+    if (gradeInput) {
+        gradeInput.value = question.grade || "";
+    }
+
+    if (chapterInput) {
+        chapterInput.value = question.chapter || "";
+    }
+
+    /* =========================
+       تغییر نوع سؤال
+    ========================= */
+
+    changeQuestionType();
+
+    /* =========================
+       پر کردن گزینه‌ها
+    ========================= */
+
+    if (
+        question.type === "mcq" &&
+        Array.isArray(question.options)
+    ) {
+
+        for (
+            let i = 0;
+            i < 4;
+            i++
+        ) {
+
+            const optionInput =
+                document.getElementById(
+                    "option-" + i
+                );
+
+            if (optionInput) {
+
+                optionInput.value =
+                    question.options[i] || "";
+            }
+        }
+    }
+
+    /* =========================
+       پر کردن پاسخ صحیح
+    ========================= */
+
+    const correctAnswer =
+        document.getElementById("correct-answer");
+
+    if (correctAnswer) {
+
+        if (question.type === "mcq") {
+
+            correctAnswer.value =
+                String(question.answer ?? "");
+
+        }
+
+        else if (
+            question.type === "truefalse"
+        ) {
+
+            correctAnswer.value =
+                String(question.answer);
+
+        }
+
+        else if (
+            question.type === "fillblank" ||
+            question.type === "shortanswer"
+        ) {
+
+            correctAnswer.value =
+                question.answer || "";
+        }
+    }
+
+    alert(
+        "✏️ سؤال برای ویرایش آماده شد."
+    );
+}
 
 function showResults() {
 
@@ -1647,8 +2129,6 @@ function showResults() {
 }
 
 
-
-
 async function displayResults() {
 
     const container =
@@ -1659,23 +2139,31 @@ async function displayResults() {
         return;
     }
 
+
     container.innerHTML =
         "⏳ در حال دریافت نتایج...";
 
+
     const { data: results, error } =
         await supabaseClient
-        .from("exam_results")
-        .select("*");
+            .from("exam_results")
+            .select("*")
+            .order("id", {
+                ascending: true
+            });
+
 
     console.log(
         "نتایج دریافتی از Supabase:",
         results
     );
 
+
     console.log(
         "خطای Supabase:",
         error
     );
+
 
     if (error) {
 
@@ -1688,6 +2176,7 @@ async function displayResults() {
         return;
     }
 
+
     if (!results || results.length === 0) {
 
         container.innerHTML =
@@ -1696,96 +2185,359 @@ async function displayResults() {
         return;
     }
 
-    // نتایج را برای تابع showExamDetails قابل دسترسی می‌کنیم
+
+    // نتایج را برای showExamDetails قابل دسترسی می‌کنیم
     window.examResults = results;
+
 
     container.innerHTML = "";
 
+
+    // دسته‌بندی نتایج بر اساس نام دانش‌آموز
+    const students = {};
+
+
     results.forEach(function(result, index) {
 
-        const card =
-            document.createElement("div");
+        const studentName =
+            result.student_name || "دانش‌آموز بدون نام";
 
-        card.className =
-            "result-card";
 
-        card.style.marginBottom =
-            "20px";
+        if (!students[studentName]) {
 
-        card.style.padding =
-            "15px";
+            students[studentName] = [];
 
-        card.style.border =
-            "1px solid #ddd";
+        }
 
-        card.style.borderRadius =
-            "10px";
 
-        card.innerHTML = `
+        students[studentName].push({
 
-            <h3>
-                آزمون ${index + 1}
-            </h3>
+            result: result,
 
-            <p>
-                👤 <strong>دانش‌آموز:</strong>
-                ${result.student_name || "-"}
-            </p>
+            index: index
 
-            <p>
-                🎯 <strong>نمره:</strong>
-                ${result.score ?? "-"}
-                از
-                ${result.total_questions ?? "-"}
-            </p>
-
-            <p>
-                ✅ <strong>پاسخ صحیح:</strong>
-                ${result.correct_answers ?? "-"}
-            </p>
-
-            <p>
-                ❌ <strong>پاسخ غلط:</strong>
-                ${result.wrong_answers ?? "-"}
-            </p>
-
-            <p>
-                📅 <strong>تاریخ:</strong>
-                ${result.date || "-"}
-            </p>
-
-            <br>
-
-            <button
-                onclick="showExamDetails(${index}, this)"
-            >
-                🔍 مشاهده جزئیات پاسخ‌ها
-            </button>
-
-            <div
-                class="exam-details"
-                style="
-                    display:none;
-                    margin-top:15px;
-                    padding:15px;
-                    border-radius:10px;
-                    background:#f5f5f5;
-                "
-            ></div>
-
-        `;
-
-        container.appendChild(card);
+        });
 
     });
+
+
+    // ساخت بخش جداگانه برای هر دانش‌آموز
+    Object.keys(students).forEach(
+        function(studentName) {
+
+
+            const studentSection =
+                document.createElement("div");
+
+
+            studentSection.className =
+                "student-results-section";
+
+
+            studentSection.style.marginBottom =
+                "30px";
+
+
+            studentSection.style.padding =
+                "15px";
+
+
+            studentSection.style.border =
+                "2px solid #ddd";
+
+
+            studentSection.style.borderRadius =
+                "15px";
+
+
+            studentSection.style.background =
+                "#fafafa";
+
+
+            // عنوان دانش‌آموز
+            const title =
+    document.createElement("h2");
+
+
+title.textContent =
+    "👨‍🎓 " + studentName;
+
+
+title.style.marginBottom =
+    "10px";
+
+
+title.style.textAlign =
+    "center";
+
+
+studentSection.appendChild(title);
+
+
+// تعداد آزمون‌های دانش‌آموز
+const examCount =
+    students[studentName].length;
+
+
+const toggleButton =
+    document.createElement("button");
+
+
+toggleButton.textContent =
+    "📂 مشاهده نتایج (" +
+    examCount +
+    " آزمون)";
+
+
+toggleButton.style.display =
+    "block";
+
+
+toggleButton.style.margin =
+    "0 auto 15px auto";
+
+
+toggleButton.style.padding =
+    "10px 18px";
+
+
+toggleButton.style.border =
+    "none";
+
+
+toggleButton.style.borderRadius =
+    "8px";
+
+
+toggleButton.style.cursor =
+    "pointer";
+
+
+studentSection.appendChild(
+    toggleButton
+);
+
+
+// ظرف آزمون‌های دانش‌آموز
+const examsContainer =
+    document.createElement("div");
+
+
+examsContainer.style.display =
+    "none";
+
+
+studentSection.appendChild(
+    examsContainer
+);
+
+
+toggleButton.onclick =
+    function() {
+
+        if (
+            examsContainer.style.display ===
+            "none"
+        ) {
+
+            examsContainer.style.display =
+                "block";
+
+            toggleButton.textContent =
+                "📂 بستن نتایج";
+
+        } else {
+
+            examsContainer.style.display =
+                "none";
+
+            toggleButton.textContent =
+                "📂 مشاهده نتایج (" +
+                examCount +
+                " آزمون)";
+
+        }
+
+    };
+
+            // آزمون‌های این دانش‌آموز
+            students[studentName].forEach(
+                function(item, studentExamIndex) {
+
+
+                    const result =
+                        item.result;
+
+
+                    const originalIndex =
+                        item.index;
+
+
+                    const card =
+                        document.createElement("div");
+
+
+                    card.className =
+                        "result-card";
+
+
+                    card.style.marginBottom =
+                        "20px";
+
+
+                    card.style.padding =
+                        "15px";
+
+
+                    card.style.border =
+                        "1px solid #ddd";
+
+
+                    card.style.borderRadius =
+                        "10px";
+
+
+                    card.style.background =
+                        "white";
+
+
+                    card.innerHTML = `
+
+                        <h3>
+                            📝 آزمون ${studentExamIndex + 1}
+                        </h3>
+
+                        <p>
+                            🎯 <strong>نمره:</strong>
+                            ${result.score ?? "-"}
+                            از
+                            ${result.total_questions ?? "-"}
+                        </p>
+
+                        <p>
+                            ✅ <strong>پاسخ صحیح:</strong>
+                            ${result.correct_answers ?? "-"}
+                        </p>
+
+                        <p>
+                            ❌ <strong>پاسخ غلط:</strong>
+                            ${result.wrong_answers ?? "-"}
+                        </p>
+
+                        <p>
+                            📅 <strong>تاریخ:</strong>
+                            ${result.date || "-"}
+                        </p>
+
+                        <br>
+
+                        <button
+                            onclick="showExamDetails(
+                                ${originalIndex},
+                                this
+                            )"
+                        >
+                            🔍 مشاهده جزئیات پاسخ‌ها
+                        </button>
+
+                        <br><br>
+
+                        <button
+                            onclick="deleteExamResult(
+                                ${result.id}
+                            )"
+                            style="
+                                background:#d32f2f;
+                                color:white;
+                                border:none;
+                                padding:10px 15px;
+                                border-radius:8px;
+                                cursor:pointer;
+                            "
+                        >
+                            🗑️ حذف این نتیجه
+                        </button>
+
+                        <div
+                            class="exam-details"
+                            style="
+                                display:none;
+                                margin-top:15px;
+                                padding:15px;
+                                border-radius:10px;
+                                background:#f5f5f5;
+                            "
+                        ></div>
+
+                    `;
+
+
+                    examsContainer.appendChild(card);
+
+                }
+            );
+
+
+            container.appendChild(
+                studentSection
+            );
+
+        }
+    );
+
+}
+
+
+
+async function deleteExamResult(resultId) {
+
+    const confirmed =
+        confirm(
+            "⚠️ آیا مطمئن هستید که می‌خواهید این نتیجه آزمون را حذف کنید؟"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    const { error } =
+        await supabaseClient
+            .from("exam_results")
+            .delete()
+            .eq("id", resultId);
+
+
+    if (error) {
+
+        console.error(
+            "خطا در حذف نتیجه:",
+            error
+        );
+
+        alert(
+            "❌ حذف نتیجه انجام نشد:\n\n" +
+            error.message
+        );
+
+        return;
+    }
+
+
+    alert(
+        "✅ نتیجه آزمون با موفقیت حذف شد."
+    );
+
+
+    // دریافت دوباره نتایج
+    displayResults();
 
 }
 
 
 
 
-
-function showExamDetails(index, button) {
+async function showExamDetails(index, button) {
 
     const results = window.examResults;
 
@@ -1801,49 +2553,44 @@ function showExamDetails(index, button) {
         return;
     }
 
-    const card = button.closest(".result-card");
+    const card =
+        button.closest(".result-card");
 
     if (!card) {
         alert("❌ کارت نتیجه پیدا نشد.");
         return;
     }
 
-    const details = card.querySelector(".exam-details");
+    const details =
+        card.querySelector(".exam-details");
 
     if (!details) {
         alert("❌ بخش جزئیات پیدا نشد.");
         return;
     }
 
-    // باز و بسته کردن جزئیات
     if (details.style.display === "block") {
-
         details.style.display = "none";
-
         return;
     }
 
     let answers = result.answers;
 
-    // اگر answers به صورت متن ذخیره شده باشد
     if (typeof answers === "string") {
 
         try {
-
             answers = JSON.parse(answers);
+        }
 
-        } catch (error) {
+        catch (error) {
 
             console.error(
-                "خطا در تبدیل answers:",
+                "❌ خطا در تبدیل answers:",
                 error
             );
 
-            details.innerHTML = `
-                <p>
-                    ❌ ساختار پاسخ‌ها قابل خواندن نیست.
-                </p>
-            `;
+            details.innerHTML =
+                "<p>❌ ساختار پاسخ‌ها قابل خواندن نیست.</p>";
 
             details.style.display = "block";
 
@@ -1853,22 +2600,75 @@ function showExamDetails(index, button) {
 
     if (
         !answers ||
-        (
-            Array.isArray(answers) &&
-            answers.length === 0
-        )
+        !Array.isArray(answers) ||
+        answers.length === 0
     ) {
 
-        details.innerHTML = `
-            <p>
-                📭 پاسخ‌های این آزمون ذخیره نشده‌اند.
-            </p>
-        `;
+        details.innerHTML =
+            "<p>📭 پاسخ‌های این آزمون ذخیره نشده‌اند.</p>";
 
         details.style.display = "block";
 
         return;
     }
+
+    details.innerHTML =
+        "⏳ در حال دریافت پاسخ‌های صحیح...";
+
+    /*
+     * گرفتن ID سؤال‌ها
+     */
+
+    const questionIds =
+        answers
+            .map(function(answer) {
+                return answer.questionId;
+            })
+            .filter(function(id) {
+                return id !== null &&
+                       id !== undefined;
+            });
+
+    /*
+     * دریافت اطلاعات سؤال‌ها از Supabase
+     */
+
+    const { data: questionsData, error } =
+        await supabaseClient
+            .from("questions")
+            .select(
+                "id, type, question, options, answer"
+            )
+            .in("id", questionIds);
+
+    if (error) {
+
+        console.error(
+            "❌ خطا در دریافت سؤال‌ها:",
+            error
+        );
+
+        details.innerHTML =
+            "❌ خطا در دریافت پاسخ صحیح:<br>" +
+            error.message;
+
+        return;
+    }
+
+    /*
+     * تبدیل سؤال‌ها به یک شیء برای دسترسی سریع
+     */
+
+    const questionsMap = {};
+
+    questionsData.forEach(
+        function(question) {
+
+            questionsMap[question.id] =
+                question;
+
+        }
+    );
 
     let html = `
         <h4>
@@ -1877,95 +2677,19 @@ function showExamDetails(index, button) {
         </h4>
     `;
 
-    if (Array.isArray(answers)) {
+    /*
+     * نمایش تک‌تک سؤال‌ها
+     */
 
-        answers.forEach(
-            function(answer, answerIndex) {
+    answers.forEach(
+        function(answer, answerIndex) {
 
-                const questionText =
-                    answer.question || "-";
+            const question =
+                questionsMap[answer.questionId];
 
-                const options =
-                    Array.isArray(answer.options)
-                        ? answer.options
-                        : [];
-
-                const userAnswer =
-                    answer.userAnswer ?? null;
-
-                const correctAnswer =
-                    answer.correctAnswer ?? null;
-
-                let userAnswerText =
-                    userAnswer ?? "بدون پاسخ";
-
-                let correctAnswerText =
-                    correctAnswer ?? "مشخص نیست";
-
-
-                // تبدیل شماره گزینه دانش‌آموز به متن گزینه
-                if (
-                    answer.type === "mcq" &&
-                    userAnswer !== null &&
-                    options[userAnswer] !== undefined
-                ) {
-
-                    userAnswerText =
-                        `گزینه ${Number(userAnswer) + 1}: ${options[userAnswer]}`;
-
-                }
-
-
-                // تبدیل شماره پاسخ صحیح به متن گزینه
-                if (
-                    answer.type === "mcq" &&
-                    correctAnswer !== null &&
-                    options[correctAnswer] !== undefined
-                ) {
-
-                    correctAnswerText =
-                        `گزینه ${Number(correctAnswer) + 1}: ${options[correctAnswer]}`;
-
-                }
-
-
-                // بررسی درست یا غلط بودن پاسخ
-                let resultText = "";
-
-                if (
-                    userAnswer === null ||
-                    userAnswer === ""
-                ) {
-
-                    resultText = `
-                        <p style="color:#777;">
-                            ⚪ بدون پاسخ
-                        </p>
-                    `;
-
-                } else if (
-                    String(userAnswer) ===
-                    String(correctAnswer)
-                ) {
-
-                    resultText = `
-                        <p style="color:green;">
-                            🟢 درست
-                        </p>
-                    `;
-
-                } else {
-
-                    resultText = `
-                        <p style="color:red;">
-                            🔴 غلط
-                        </p>
-                    `;
-                }
-
+            if (!question) {
 
                 html += `
-
                     <div
                         style="
                             margin-bottom:20px;
@@ -1975,56 +2699,208 @@ function showExamDetails(index, button) {
                             border:1px solid #ddd;
                         "
                     >
-
-                        <h4>
-                            📝 سؤال ${answerIndex + 1}
-                        </h4>
-
                         <p>
-                            <strong>
-                                ${questionText}
-                            </strong>
+                            ❌ اطلاعات سؤال
+                            ${answer.questionId}
+                            پیدا نشد.
                         </p>
-
-                        <p>
-                            👨‍🎓
-                            <strong>
-                                پاسخ دانش‌آموز:
-                            </strong>
-                            ${userAnswerText}
-                        </p>
-
-                        <p>
-                            ✅
-                            <strong>
-                                پاسخ صحیح:
-                            </strong>
-                            ${correctAnswerText}
-                        </p>
-
-                        ${resultText}
-
                     </div>
+                `;
 
+                return;
+            }
+
+            const userAnswer =
+                answer.userAnswer ?? null;
+
+            const correctAnswer =
+                question.answer ?? null;
+
+            const options =
+                Array.isArray(question.options)
+                    ? question.options
+                    : [];
+
+            /*
+             * متن پاسخ دانش‌آموز
+             */
+
+            let userAnswerText =
+                userAnswer === null ||
+                userAnswer === ""
+                    ? "بدون پاسخ"
+                    : String(userAnswer);
+
+            /*
+             * متن پاسخ صحیح
+             */
+
+            let correctAnswerText =
+                correctAnswer === null
+                    ? "بدون پاسخ صحیح"
+                    : String(correctAnswer);
+
+            /*
+             * چهارگزینه‌ای
+             */
+
+            if (
+                question.type === "mcq"
+            ) {
+
+                if (
+                    userAnswer !== null &&
+                    options[userAnswer] !== undefined
+                ) {
+
+                    userAnswerText =
+                        "گزینه " +
+                        (Number(userAnswer) + 1) +
+                        ": " +
+                        options[userAnswer];
+                }
+
+                if (
+                    correctAnswer !== null &&
+                    options[correctAnswer] !== undefined
+                ) {
+
+                    correctAnswerText =
+                        "گزینه " +
+                        (Number(correctAnswer) + 1) +
+                        ": " +
+                        options[correctAnswer];
+                }
+            }
+
+            /*
+             * صحیح / غلط
+             */
+
+            else if (
+                question.type === "truefalse"
+            ) {
+
+                if (userAnswer === true) {
+                    userAnswerText = "صحیح";
+                }
+
+                else if (userAnswer === false) {
+                    userAnswerText = "غلط";
+                }
+
+                if (correctAnswer === true) {
+                    correctAnswerText = "صحیح";
+                }
+
+                else if (correctAnswer === false) {
+                    correctAnswerText = "غلط";
+                }
+            }
+
+            /*
+             * تعیین درست یا غلط
+             */
+
+            let resultText = "";
+
+            if (
+                question.type === "essay"
+            ) {
+
+                resultText = `
+                    <p style="color:#777;">
+                        📝 سؤال تشریحی؛
+                        نیازمند تصحیح دستی است.
+                    </p>
                 `;
             }
-        );
 
-    } else {
+            else if (
+                userAnswer === null ||
+                userAnswer === ""
+            ) {
 
-        html += `
-            <p>
-                ⚠️ ساختار پاسخ‌ها آرایه نیست.
-            </p>
-        `;
-    }
+                resultText = `
+                    <p style="color:#777;">
+                        ⚪ بدون پاسخ
+                    </p>
+                `;
+            }
+
+            else if (
+                String(userAnswer).trim().toLowerCase() ===
+                String(correctAnswer).trim().toLowerCase()
+            ) {
+
+                resultText = `
+                    <p style="color:green;">
+                        🟢 درست
+                    </p>
+                `;
+            }
+
+            else {
+
+                resultText = `
+                    <p style="color:red;">
+                        🔴 غلط
+                    </p>
+                `;
+            }
+
+            /*
+             * ساخت کارت سؤال
+             */
+
+            html += `
+                <div
+                    style="
+                        margin-bottom:20px;
+                        padding:15px;
+                        background:white;
+                        border-radius:10px;
+                        border:1px solid #ddd;
+                    "
+                >
+
+                    <h4>
+                        📝 سؤال ${answerIndex + 1}
+                    </h4>
+
+                    <p>
+                        <strong>
+                            ${question.question}
+                        </strong>
+                    </p>
+
+                    <p>
+                        👨‍🎓
+                        <strong>
+                            پاسخ دانش‌آموز:
+                        </strong>
+                        ${userAnswerText}
+                    </p>
+
+                    <p>
+                        ✅
+                        <strong>
+                            پاسخ صحیح:
+                        </strong>
+                        ${correctAnswerText}
+                    </p>
+
+                    ${resultText}
+
+                </div>
+            `;
+        }
+    );
 
     details.innerHTML = html;
 
     details.style.display = "block";
 }
-
-
 
 
 
@@ -2069,7 +2945,7 @@ function showProgressPanel() {
 }
 
 
-function loadStudentList() {
+async function loadStudentList() {
 
     const select =
         document.getElementById("student-select");
@@ -2078,13 +2954,72 @@ function loadStudentList() {
         return;
     }
 
-    const results =
-        JSON.parse(
-            localStorage.getItem("examResults")
-        ) || [];
+    select.innerHTML = `
+        <option value="">
+            ⏳ در حال دریافت دانش‌آموزان...
+        </option>
+    `;
 
 
-    // حذف گزینه‌های قبلی
+    const { data: results, error } =
+        await supabaseClient
+            .from("exam_results")
+            .select("student_name");
+
+
+    if (error) {
+
+        console.error(
+            "خطا در دریافت نام دانش‌آموزان:",
+            error
+        );
+
+        select.innerHTML = `
+            <option value="">
+                ❌ خطا در دریافت اطلاعات
+            </option>
+        `;
+
+        alert(
+            "❌ خطا در دریافت نام دانش‌آموزان:\n\n" +
+            error.message
+        );
+
+        return;
+    }
+
+
+    if (!results || results.length === 0) {
+
+        select.innerHTML = `
+            <option value="">
+                📭 هنوز نتیجه‌ای ثبت نشده است
+            </option>
+        `;
+
+        return;
+    }
+
+
+    // حذف نام‌های تکراری
+    const students = [];
+
+    results.forEach(function(result) {
+
+        const name =
+            result.student_name;
+
+        if (
+            name &&
+            !students.includes(name)
+        ) {
+            students.push(name);
+        }
+
+    });
+
+
+    // گزینه اول
     select.innerHTML = `
         <option value="">
             -- یک دانش‌آموز انتخاب کنید --
@@ -2092,85 +3027,270 @@ function loadStudentList() {
     `;
 
 
-    // استخراج نام دانش‌آموزان
-    const students = [];
-
-    results.forEach(function(result) {
-
-        if (!students.includes(result.studentName)) {
-            students.push(result.studentName);
-        }
-
-    });
-
-
-    // اضافه کردن دانش‌آموزان به لیست
+    // اضافه کردن دانش‌آموزان
     students.forEach(function(student) {
 
         const option =
             document.createElement("option");
 
-        option.value = student;
-        option.textContent = student;
+        option.value =
+            student;
+
+        option.textContent =
+            student;
 
         select.appendChild(option);
 
     });
+
 }
 
-
-function showStudentChart() {
+async function showStudentChart() {
 
     const select =
         document.getElementById("student-select");
 
+    if (!select) {
+        return;
+    }
+
     const studentName =
         select.value;
 
+    const studentNameElement =
+    document.getElementById(
+        "selected-student-name"
+    );
+
+if (studentNameElement) {
+
+    studentNameElement.textContent =
+        "👨‍🎓 گزارش پیشرفت: " +
+        studentName;
+
+}
 
     if (studentName === "") {
         return;
     }
 
 
-    const results =
-        JSON.parse(
-            localStorage.getItem("examResults")
-        ) || [];
+    // دریافت نتایج این دانش‌آموز از Supabase
+    const { data: studentResults, error } =
+        await supabaseClient
+            .from("exam_results")
+            .select(
+                "student_name, score, total_questions, date"
+            )
+            .eq("student_name", studentName)
+            .order("id", {
+                ascending: true
+            });
 
 
-    // فقط آزمون‌های همین دانش‌آموز
-    const studentResults =
-        results.filter(function(result) {
+    if (error) {
 
-            return result.studentName === studentName;
+        console.error(
+            "خطا در دریافت نتایج دانش‌آموز:",
+            error
+        );
 
-        });
+        alert(
+            "❌ خطا در دریافت نتایج:\n\n" +
+            error.message
+        );
+
+        return;
+    }
 
 
+    if (
+        !studentResults ||
+        studentResults.length === 0
+    ) {
+
+        alert(
+            "📭 برای این دانش‌آموز نتیجه‌ای پیدا نشد."
+        );
+
+        return;
+    }
+
+
+    // عنوان آزمون‌ها
     const labels =
-        studentResults.map(function(result, index) {
+    studentResults.map(
+        function(result, index) {
+
+            if (result.date) {
+
+                return result.date;
+
+            }
 
             return "آزمون " + (index + 1);
 
-        });
+        }
+    );
 
 
+    // نمره‌ها
     const scores =
-        studentResults.map(function(result) {
+        studentResults.map(
+            function(result) {
 
-            return result.score;
+                return Number(result.score) || 0;
 
-        });
+            }
+        );
+
+const totalScore =
+    scores.reduce(
+        function(sum, score) {
+            return sum + score;
+        },
+        0
+    );
+
+
+const averageScore =
+    totalScore / scores.length;
+    
+  const highestScore =
+    Math.max(...scores);
+
+const lowestScore =
+    Math.min(...scores);
+
+const examCount =
+    scores.length;  
+    
+    let progressPercent = 0;
+
+if (scores.length >= 2) {
+
+    const previousScore =
+        scores[scores.length - 2];
+
+    const currentScore =
+        scores[scores.length - 1];
+
+    if (previousScore !== 0) {
+
+        progressPercent =
+            (
+                (currentScore - previousScore) /
+                previousScore
+            ) * 100;
+
+    }
+
+}
+    
+    const averageElement =
+    document.getElementById("average-score");
+
+if (averageElement) {
+
+    averageElement.textContent =
+        "📊 میانگین نمرات: " +
+        averageScore.toFixed(2) +
+        " از ۲۰";
+
+}
+    
+    
+    const examCountElement =
+    document.getElementById("exam-count");
+
+if (examCountElement) {
+
+    examCountElement.textContent =
+        "📝 تعداد آزمون‌ها: " +
+        examCount;
+
+}
+
+
+const highestScoreElement =
+    document.getElementById("highest-score");
+
+if (highestScoreElement) {
+
+    highestScoreElement.textContent =
+        "🏆 بالاترین نمره: " +
+        highestScore +
+        " از ۲۰";
+
+}
+
+
+const lowestScoreElement =
+    document.getElementById("lowest-score");
+
+if (lowestScoreElement) {
+
+    lowestScoreElement.textContent =
+        "📉 پایین‌ترین نمره: " +
+        lowestScore +
+        " از ۲۰";
+
+}
+    
+    
+    
+    
+ const progressElement =
+    document.getElementById("progress-percent");
+
+if (progressElement) {
+
+    if (scores.length < 2) {
+
+        progressElement.textContent =
+            "📈 تغییر نسبت به آزمون قبل: " +
+            "برای محاسبه حداقل دو آزمون لازم است";
+
+    } else {
+
+        const sign =
+            progressPercent > 0
+                ? "+"
+                : "";
+
+        progressElement.textContent =
+            "📈 تغییر نسبت به آزمون قبل: " +
+            sign +
+            progressPercent.toFixed(2) +
+            "%";
+
+    }
+
+}   
+    
+    
+    
+    const canvas =
+        document.getElementById(
+            "progress-chart"
+        );
+
+
+    if (!canvas) {
+
+        alert(
+            "❌ نمودار progress-chart پیدا نشد."
+        );
+
+        return;
+    }
 
 
     const ctx =
-        document
-        .getElementById("progress-chart")
-        .getContext("2d");
+        canvas.getContext("2d");
 
 
-    // اگر نمودار قبلی وجود داشت حذفش کن
+    // حذف نمودار قبلی
     if (progressChart) {
 
         progressChart.destroy();
@@ -2178,50 +3298,114 @@ function showStudentChart() {
     }
 
 
+    // ساخت نمودار جدید
     progressChart =
-        new Chart(ctx, {
+    new Chart(ctx, {
 
-            type: "line",
+        type: "line",
 
-            data: {
+        data: {
 
-                labels: labels,
+            labels: labels,
 
-                datasets: [{
+            datasets: [{
 
-                    label: "نمره",
+                label: "نمره",
 
-                    data: scores,
+                data: scores,
 
-                    tension: 0.3,
+                tension: 0.3,
 
-                    fill: false
+                fill: false,
 
-                }]
+                pointRadius: 6,
 
-            },
+                pointHoverRadius: 8
 
-            options: {
+            }]
 
-                responsive: true,
+        },
 
-                scales: {
 
-                    y: {
+        options: {
 
-                        beginAtZero: true,
+            responsive: true,
 
-                        suggestedMax: 10
+            scales: {
 
-                    }
+                y: {
+
+                    beginAtZero: true,
+
+                    suggestedMax: 20
 
                 }
 
             }
 
-        });
+        },
+
+
+        plugins: [
+
+            {
+
+                id: "showScoreOnPoints",
+
+                afterDatasetsDraw: function(chart) {
+
+                    const ctx =
+                        chart.ctx;
+
+                    const dataset =
+                        chart.data.datasets[0];
+
+                    const meta =
+                        chart.getDatasetMeta(0);
+
+
+                    ctx.save();
+
+                    ctx.font =
+                        "bold 14px Arial";
+
+                    ctx.textAlign =
+                        "center";
+
+                    ctx.textBaseline =
+                        "bottom";
+
+
+                    meta.data.forEach(
+                        function(point, index) {
+
+                            const value =
+                                dataset.data[index];
+
+                            ctx.fillText(
+                                value,
+                                point.x,
+                                point.y - 10
+                            );
+
+                        }
+                    );
+
+
+                    ctx.restore();
+
+                }
+
+            }
+
+        ]
+
+    });
 
 }
+
+
+
 
 
 
@@ -2421,10 +3605,21 @@ function changeQuestionType() {
 
 
 
-document.getElementById("question").style.fontFamily = "BBadr";
+document.getElementById("question").style.fontFamily = "yol";
 
 document.querySelectorAll(".option").forEach(option => {
-    option.style.fontFamily = "BBadr";
+    option.style.fontFamily = "yol";
 });
+
+
+
+
+
+
+
+
+
+
+
 
 // تغییر فونت همه پاراگراف‌ها
