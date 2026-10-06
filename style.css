@@ -1,4 +1,3 @@
-
 @font-face{
     font-family: titr;
     src:url(Fonts/BTitrBd.woff);
@@ -24,12 +23,15 @@
 }
 
 :root {
-    --font-family: "titr";
+    --font-family: "zar";
+    --color:black;
+   
 }
 
 #student-name{
     font-family: "mit";
     text-justify: 30px;
+    line-height: 10px;
 }
 .paye{
     font-family: "mit";
@@ -54,17 +56,18 @@
 
 #teacher-email,#teacher-password{
     
-    font-family: zar;
+    font-family: yol;
 }
 
 button{
-    font-family: zar;
+    font-family: yol;
     
 }
 
 
 * {
     box-sizing: border-box;
+    line-height: 28px;
 }
 
 body {
